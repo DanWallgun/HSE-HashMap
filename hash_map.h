@@ -5,6 +5,8 @@
 
 template<class KeyType, class ValueType, class Hash = std::hash<KeyType>>
 class HashMap {
+    using Element = std::pair<KeyType, ValueType>;
+    using ConstKeyElement = std::pair<const KeyType, ValueType>;
   public:
     class iterator {
       public:
@@ -17,7 +19,7 @@ class HashMap {
             hashmap_ = other.hashmap_;
             return *this;
         }
-        iterator(size_t i, size_t j, const HashMap<KeyType, ValueType, Hash>& h)
+        iterator(size_t i, size_t j, HashMap<KeyType, ValueType, Hash>& h)
         : i(i)
         , j(j)
         , hashmap_(&h)
@@ -51,12 +53,12 @@ class HashMap {
             ++*this;
             return it;
         }
-        std::pair<const KeyType, ValueType>& operator*() {
-            return reinterpret_cast<std::pair<const KeyType, ValueType>&>(
+        ConstKeyElement& operator*() {
+            return reinterpret_cast<ConstKeyElement&>(
                 hashmap_->data_[i][j]);
         }
-        std::pair<const KeyType, ValueType>* operator->() {
-            return reinterpret_cast<std::pair<const KeyType, ValueType>*>(
+        ConstKeyElement* operator->() {
+            return reinterpret_cast<ConstKeyElement*>(
                 &hashmap_->data_[i][j]);
         }
 
@@ -111,14 +113,14 @@ class HashMap {
             ++*this;
             return it;
         }
-        const std::pair<const KeyType, ValueType>& operator*() {
+        const ConstKeyElement& operator*() {
             return
-                reinterpret_cast<const std::pair<const KeyType, ValueType>&>(
+                reinterpret_cast<const ConstKeyElement&>(
                     hashmap_->data_[i][j]);
         }
-        const std::pair<const KeyType, ValueType>* operator->() {
+        const ConstKeyElement* operator->() {
             return
-                reinterpret_cast<const std::pair<const KeyType, ValueType>*>(
+                reinterpret_cast<const ConstKeyElement*>(
                     &hashmap_->data_[i][j]);
         }
 
@@ -139,7 +141,7 @@ class HashMap {
             ++b;
         }
     }
-    HashMap(std::initializer_list<std::pair<KeyType, ValueType>> list,
+    HashMap(std::initializer_list<Element> list,
             Hash hasher = Hash())
     : hash_(hasher)
     , data_(capacity_) {
@@ -167,57 +169,57 @@ class HashMap {
     const_iterator end() const {
         return const_iterator(capacity_, 0, *this);
     }
-    void insert(const std::pair<KeyType, ValueType>& element) {
-        size_t h = get_hash_(element.first);
-        for (size_t i = 0; i < data_[h].size(); ++i)
-            if (data_[h][i].first == element.first)
+    void insert(const Element& element) {
+        size_t elementHash = get_hash(element.first);
+        for (size_t i = 0; i < data_[elementHash].size(); ++i)
+            if (data_[elementHash][i].first == element.first)
                 return;
-        data_[h].push_back(element);
+        data_[elementHash].push_back(element);
         ++size_;
         check_rehash();
     }
     iterator find(const KeyType& key) {
-        size_t h = get_hash_(key);
-        for (size_t i = 0; i < data_[h].size(); ++i) {
-            if (data_[h][i].first == key)
-                return iterator(h, i, *this);
+        size_t elementHash = get_hash(key);
+        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
+            if (data_[elementHash][i].first == key)
+                return iterator(elementHash, i, *this);
         }
         return iterator(capacity_, 0, *this);
     }
     const_iterator find(const KeyType& key) const {
-        size_t h = get_hash_(key);
-        for (size_t i = 0; i < data_[h].size(); ++i)
-            if (data_[h][i].first == key)
-                return const_iterator(h, i, *this);
+        size_t elementHash = get_hash(key);
+        for (size_t i = 0; i < data_[elementHash].size(); ++i)
+            if (data_[elementHash][i].first == key)
+                return const_iterator(elementHash, i, *this);
         return const_iterator(capacity_, 0, *this);
     }
     void erase(const KeyType& key) {
-        size_t h = get_hash_(key);
-        auto it = std::remove_if(data_[h].begin(), data_[h].end(),
-            [&key] (const std::pair<KeyType, ValueType>& p) {
+        size_t elementHash = get_hash(key);
+        auto it = std::remove_if(data_[elementHash].begin(), data_[elementHash].end(),
+            [&key] (const Element& p) {
             return p.first == key;
             });
-        size_t prev_size = data_[h].size();
-        data_[h].erase(
+        size_t prev_size = data_[elementHash].size();
+        data_[elementHash].erase(
             it,
-            data_[h].end());
-        size_t new_size = data_[h].size();
+            data_[elementHash].end());
+        size_t new_size = data_[elementHash].size();
         size_ -= prev_size - new_size;
         check_rehash();
     }
     ValueType& operator[](const KeyType& key) {
-        size_t h = get_hash_(key);
-        for (size_t i = 0; i < data_[h].size(); ++i)
-            if (data_[h][i].first == key)
-                return data_[h][i].second;
+        size_t elementHash = get_hash(key);
+        for (size_t i = 0; i < data_[elementHash].size(); ++i)
+            if (data_[elementHash][i].first == key)
+                return data_[elementHash][i].second;
         insert({key, ValueType()});
         return (*this)[key];
     }
     const ValueType& at(const KeyType& key) const {
-        size_t h = get_hash_(key);
-        for (size_t i = 0; i < data_[h].size(); ++i)
-            if (data_[h][i].first == key)
-                return data_[h][i].second;
+        size_t elementHash = get_hash(key);
+        for (size_t i = 0; i < data_[elementHash].size(); ++i)
+            if (data_[elementHash][i].first == key)
+                return data_[elementHash][i].second;
         throw std::out_of_range("");
     }
     Hash hash_function() const {
@@ -240,8 +242,8 @@ class HashMap {
     size_t size_ = 0;
     size_t capacity_ = (size_t) 5e5;
     Hash hash_;
-    std::vector<std::vector<std::pair<KeyType, ValueType>>> data_;
-    size_t get_hash_(const KeyType& key) const {
+    std::vector<std::vector<Element>> data_;
+    size_t get_hash(const KeyType& key) const {
         return hash_(key) % capacity_;
     }
     void check_rehash() {
@@ -250,7 +252,7 @@ class HashMap {
         }
     }
     void rehash() {
-        std::vector<std::pair<KeyType, ValueType>> arr;
+        std::vector<Element> arr;
         for (size_t i = 0; i < capacity_; ++i) {
             for (size_t j = 0; j < data_[i].size(); ++j) {
                 arr.push_back(data_[i][j]);
@@ -260,7 +262,7 @@ class HashMap {
         data_.clear();
         data_.resize(capacity_);
         for (const auto& i : arr) {
-            data_[get_hash_(i.first)].push_back(i);
+            data_[get_hash(i.first)].push_back(i);
         }
     }
 };
