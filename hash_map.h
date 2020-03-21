@@ -14,37 +14,38 @@ class HashMap {
         : hashmap_(nullptr)
         {}
         iterator& operator=(const iterator& other) {
-            i = other.i;
-            j = other.j;
+            bucketPointer = other.bucketPointer;
+            innerPointer = other.innerPointer;
             hashmap_ = other.hashmap_;
             return *this;
         }
-        iterator(size_t i, size_t j, HashMap<KeyType, ValueType, Hash>& h)
-        : i(i)
-        , j(j)
+        iterator(size_t bPtr, size_t iPtr, HashMap<KeyType, ValueType, Hash>& h)
+        : bucketPointer(bPtr)
+        , innerPointer(iPtr)
         , hashmap_(&h)
         {}
         bool operator==(const iterator& other) const {
-            return i == other.i && j == other.j;
+            return bucketPointer == other.bucketPointer &&
+                   innerPointer == other.innerPointer;
         }
         bool operator!=(const iterator& other) const {
             return !(*this == other);
         }
         iterator& operator++() {
-            if (i == hashmap_->capacity_) {
+            if (bucketPointer == hashmap_->capacity_) {
                 return *this;
             }
-            if (j + 1 >= hashmap_->data_[i].size()) {
-                ++i;
-                j = 0;
-                if (i < hashmap_->data_.size()) {
-                    while (hashmap_->data_[i].empty()) {
-                        ++i;
-                        if (i == hashmap_->data_.size()) break;
+            if (innerPointer + 1 >= hashmap_->data_[bucketPointer].size()) {
+                ++bucketPointer;
+                innerPointer = 0;
+                if (bucketPointer < hashmap_->data_.size()) {
+                    while (hashmap_->data_[bucketPointer].empty()) {
+                        ++bucketPointer;
+                        if (bucketPointer == hashmap_->data_.size()) break;
                     }
                 }
             } else {
-                ++j;
+                ++innerPointer;
             }
             return *this;
         }
@@ -55,15 +56,15 @@ class HashMap {
         }
         ConstKeyElement& operator*() {
             return reinterpret_cast<ConstKeyElement&>(
-                hashmap_->data_[i][j]);
+                hashmap_->data_[bucketPointer][innerPointer]);
         }
         ConstKeyElement* operator->() {
             return reinterpret_cast<ConstKeyElement*>(
-                &hashmap_->data_[i][j]);
+                &hashmap_->data_[bucketPointer][innerPointer]);
         }
 
       private:
-        size_t i, j;
+        size_t bucketPointer, innerPointer;
         HashMap<KeyType, ValueType, Hash>* hashmap_;
     };
 
@@ -73,38 +74,41 @@ class HashMap {
         : hashmap_(nullptr)
         {}
         const_iterator& operator=(const const_iterator& other) {
-            i = other.i;
-            j = other.j;
+            bucketPointer = other.bucketPointer;
+            innerPointer = other.innerPointer;
             hashmap_ = other.hashmap_;
             return *this;
         }
-        const_iterator(size_t i, size_t j,
+        const_iterator(size_t bPtr, size_t iPtr,
                        const HashMap<KeyType, ValueType, Hash>& h)
-        : i(i)
-        , j(j)
+        : bucketPointer(bPtr)
+        , innerPointer(iPtr)
         , hashmap_(&h)
         {}
         bool operator==(const const_iterator& other) const {
-            return i == other.i && j == other.j;
+            return bucketPointer == other.bucketPointer &&
+                   innerPointer == other.innerPointer;
         }
         bool operator!=(const const_iterator& other) const {
             return !(*this == other);
         }
         const_iterator& operator++() {
-            if (i == hashmap_->capacity_) {
+            if (bucketPointer == hashmap_->capacity_) {
                 return *this;
             }
-            if (j + 1 >= hashmap_->data_[i].size()) {
-                ++i;
-                j = 0;
-                if (i < hashmap_->data_.size()) {
-                    while (hashmap_->data_[i].empty()) {
-                        ++i;
-                        if (i == hashmap_->data_.size()) break;
+            if (innerPointer + 1 >= hashmap_->data_[bucketPointer].size()) {
+                ++bucketPointer;
+                innerPointer = 0;
+                if (bucketPointer < hashmap_->data_.size()) {
+                    while (hashmap_->data_[bucketPointer].empty()) {
+                        ++bucketPointer;
+                        if (bucketPointer == hashmap_->data_.size()) {
+                            break;
+                        }
                     }
                 }
             } else {
-                ++j;
+                ++innerPointer;
             }
             return *this;
         }
@@ -116,16 +120,16 @@ class HashMap {
         const ConstKeyElement& operator*() {
             return
                 reinterpret_cast<const ConstKeyElement&>(
-                    hashmap_->data_[i][j]);
+                    hashmap_->data_[bucketPointer][innerPointer]);
         }
         const ConstKeyElement* operator->() {
             return
                 reinterpret_cast<const ConstKeyElement*>(
-                    &hashmap_->data_[i][j]);
+                    &hashmap_->data_[bucketPointer][innerPointer]);
         }
 
       private:
-        size_t i, j;
+        size_t bucketPointer, innerPointer;
         const HashMap<KeyType, ValueType, Hash>* hashmap_;
     };
     HashMap(Hash hasher = Hash())
@@ -171,9 +175,11 @@ class HashMap {
     }
     void insert(const Element& element) {
         size_t elementHash = get_hash(element.first);
-        for (size_t i = 0; i < data_[elementHash].size(); ++i)
-            if (data_[elementHash][i].first == element.first)
+        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
+            if (data_[elementHash][i].first == element.first) {
                 return;
+            }
+        }
         data_[elementHash].push_back(element);
         ++size_;
         check_rehash();
@@ -181,23 +187,26 @@ class HashMap {
     iterator find(const KeyType& key) {
         size_t elementHash = get_hash(key);
         for (size_t i = 0; i < data_[elementHash].size(); ++i) {
-            if (data_[elementHash][i].first == key)
+            if (data_[elementHash][i].first == key) {
                 return iterator(elementHash, i, *this);
+            }
         }
         return iterator(capacity_, 0, *this);
     }
     const_iterator find(const KeyType& key) const {
         size_t elementHash = get_hash(key);
-        for (size_t i = 0; i < data_[elementHash].size(); ++i)
-            if (data_[elementHash][i].first == key)
+        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
+            if (data_[elementHash][i].first == key) {
                 return const_iterator(elementHash, i, *this);
+            }
+        }
         return const_iterator(capacity_, 0, *this);
     }
     void erase(const KeyType& key) {
         size_t elementHash = get_hash(key);
         auto it = std::remove_if(data_[elementHash].begin(), data_[elementHash].end(),
             [&key] (const Element& p) {
-            return p.first == key;
+                return p.first == key;
             });
         size_t prev_size = data_[elementHash].size();
         data_[elementHash].erase(
@@ -209,17 +218,21 @@ class HashMap {
     }
     ValueType& operator[](const KeyType& key) {
         size_t elementHash = get_hash(key);
-        for (size_t i = 0; i < data_[elementHash].size(); ++i)
-            if (data_[elementHash][i].first == key)
+        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
+            if (data_[elementHash][i].first == key) {
                 return data_[elementHash][i].second;
+            }
+        }
         insert({key, ValueType()});
         return (*this)[key];
     }
     const ValueType& at(const KeyType& key) const {
         size_t elementHash = get_hash(key);
-        for (size_t i = 0; i < data_[elementHash].size(); ++i)
-            if (data_[elementHash][i].first == key)
+        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
+            if (data_[elementHash][i].first == key) {
                 return data_[elementHash][i].second;
+            }
+        }
         throw std::out_of_range("");
     }
     Hash hash_function() const {
@@ -239,6 +252,7 @@ class HashMap {
     }
 
   private:
+    static const size_t CAPACITY_MULTIPLIER = 2;
     size_t size_ = 0;
     size_t capacity_ = (size_t) 5e5;
     Hash hash_;
@@ -258,7 +272,7 @@ class HashMap {
                 arr.push_back(data_[i][j]);
             }
         }
-        capacity_ = 2 * (size_ + 1);
+        capacity_ = CAPACITY_MULTIPLIER * (size_ + 1);
         data_.clear();
         data_.resize(capacity_);
         for (const auto& i : arr) {
