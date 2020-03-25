@@ -154,18 +154,18 @@ class HashMap {
         }
     }
     iterator begin() {
-        size_t i = 0, j = 0;
-        while (i < capacity_ && data_[i].empty()) {
-            ++i;
+        size_t bucketPointer = 0, innerPointer = 0;
+        while (bucketPointer < capacity_ && data_[bucketPointer].empty()) {
+            ++bucketPointer;
         }
-        return iterator(i, j, *this);
+        return iterator(bucketPointer, innerPointer, *this);
     }
     const_iterator begin() const {
-        size_t i = 0, j = 0;
-        while (i < capacity_ && data_[i].empty()) {
-            ++i;
+        size_t bucketPointer = 0, innerPointer = 0;
+        while (bucketPointer < capacity_ && data_[bucketPointer].empty()) {
+            ++bucketPointer;
         }
-        return const_iterator(i, j, *this);
+        return const_iterator(bucketPointer, innerPointer, *this);
     }
     iterator end() {
         return iterator(capacity_, 0, *this);
@@ -175,8 +175,10 @@ class HashMap {
     }
     void insert(const Element& element) {
         size_t elementHash = get_hash(element.first);
-        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
-            if (data_[elementHash][i].first == element.first) {
+        for (size_t innerPointer = 0;
+             innerPointer < data_[elementHash].size();
+             ++innerPointer) {
+            if (data_[elementHash][innerPointer].first == element.first) {
                 return;
             }
         }
@@ -186,25 +188,31 @@ class HashMap {
     }
     iterator find(const KeyType& key) {
         size_t elementHash = get_hash(key);
-        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
-            if (data_[elementHash][i].first == key) {
-                return iterator(elementHash, i, *this);
+        for (size_t innerPointer = 0;
+             innerPointer < data_[elementHash].size();
+             ++innerPointer) {
+            if (data_[elementHash][innerPointer].first == key) {
+                return iterator(elementHash, innerPointer, *this);
             }
         }
         return iterator(capacity_, 0, *this);
     }
     const_iterator find(const KeyType& key) const {
         size_t elementHash = get_hash(key);
-        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
-            if (data_[elementHash][i].first == key) {
-                return const_iterator(elementHash, i, *this);
+        for (size_t innerPointer = 0;
+             innerPointer < data_[elementHash].size();
+             ++innerPointer) {
+            if (data_[elementHash][innerPointer].first == key) {
+                return const_iterator(elementHash, innerPointer, *this);
             }
         }
         return const_iterator(capacity_, 0, *this);
     }
     void erase(const KeyType& key) {
         size_t elementHash = get_hash(key);
-        auto it = std::remove_if(data_[elementHash].begin(), data_[elementHash].end(),
+        auto it = std::remove_if(
+            data_[elementHash].begin(),
+            data_[elementHash].end(),
             [&key] (const Element& p) {
                 return p.first == key;
             });
@@ -218,9 +226,11 @@ class HashMap {
     }
     ValueType& operator[](const KeyType& key) {
         size_t elementHash = get_hash(key);
-        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
-            if (data_[elementHash][i].first == key) {
-                return data_[elementHash][i].second;
+        for (size_t innerPointer = 0;
+            innerPointer < data_[elementHash].size();
+            ++innerPointer) {
+            if (data_[elementHash][innerPointer].first == key) {
+                return data_[elementHash][innerPointer].second;
             }
         }
         insert({key, ValueType()});
@@ -228,9 +238,11 @@ class HashMap {
     }
     const ValueType& at(const KeyType& key) const {
         size_t elementHash = get_hash(key);
-        for (size_t i = 0; i < data_[elementHash].size(); ++i) {
-            if (data_[elementHash][i].first == key) {
-                return data_[elementHash][i].second;
+        for (size_t innerPointer = 0;
+            innerPointer < data_[elementHash].size();
+            ++innerPointer) {
+            if (data_[elementHash][innerPointer].first == key) {
+                return data_[elementHash][innerPointer].second;
             }
         }
         throw std::out_of_range("");
